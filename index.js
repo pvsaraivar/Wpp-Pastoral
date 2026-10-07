@@ -1,7 +1,4 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const Papa = require('papaparse');
-const axios = require('axios');
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -11,29 +8,38 @@ const client = new Client({
     }
 });
 
-// Substitua pelo link CSV público da sua planilha do Google Sheets (ajustado com seu ID)
+// Cole aqui o link CSV público da sua planilha do Google Sheets (com o ID correto)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/SEU_ID_DA_PLANILHA/export?format=csv&gid=0';
 
 let menuOpcoes = {};
 
-// Função para carregar os dados atualizados da planilha
+// Função nativa para carregar os dados da planilha sem precisar de pacotes externos
 async function carregarDadosPlanilha() {
     try {
-        const response = await axios.get(SHEET_CSV_URL);
-        Papa.parse(response.data, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                menuOpcoes = {};
-                results.data.forEach(row => {
-                    // Certifique-se de que os nomes das colunas na planilha correspondem a 'Opção' e 'Resposta'
-                    if (row.Opção && row.Resposta) {
-                        menuOpcoes[row.Opção.trim()] = row.Resposta.trim();
-                    }
-                });
-                console.log('✅ Dados da planilha atualizados com sucesso!');
+        const response = await fetch(SHEET_CSV_URL);
+        const csvText = await response.text();
+        
+        const linhas = csvText.split('\n');
+        menuOpcoes = {};
+
+        for (let i = 1; i < linhas.length; i++) {
+            const linha = linhas.trim();
+            if (!linha) continue;
+
+            const primeiraVirgula = linha.indexOf(',');
+            if (primeiraVirgula !== -1) {
+                let opcao = linha.substring(0, primeiraVirgula).replace(/"/g, '').trim();
+                let resposta = linha.substring(primeiraVirgula + 1).replace(/^"/, '').replace(/"$/, '').trim();
+                
+                // Substitui quebras de linha literais se houverem
+                resposta = resposta.replace(/\\n/g, '\n');
+                
+                if (opcao && resposta) {
+                    menuOpcoes[opcao] = resposta;
+                }
             }
-        });
+        }
+        console.log('✅ Dados da planilha carregados com sucesso! Total de opções:', Object.keys(menuOpcoes).length);
     } catch (error) {
         console.error('❌ Erro ao carregar dados da planilha:', error);
     }
@@ -43,8 +49,10 @@ async function carregarDadosPlanilha() {
 setInterval(carregarDadosPlanilha, 10 * 60 * 1000);
 
 client.on('qr', (qr) => {
+    console.log('==================================================');
     console.log('ATENÇÃO: Copie o link abaixo e cole no seu navegador para ver o QR Code limpo:');
     console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+    console.log('==================================================');
 });
 
 client.on('ready', async () => {
@@ -60,28 +68,21 @@ client.on('message', async msg => {
     const chatId = msg.from;
     const texto = msg.body.trim();
 
-    // Se o contato já estiver em atendimento humano, o bot silencia
     if (aguardandoHumano.has(chatId)) return;
 
-    // Se a mensagem enviada corresponde a uma opção válida na planilha
     if (menuOpcoes[texto]) {
-        // Se for a opção 11 (falar com a coordenação), ativa o transbordo humano
         if (texto === '11') {
             aguardandoHumano.add(chatId);
             await client.sendMessage(chatId, menuOpcoes[texto]);
             return;
         }
-
-        // Envia a resposta correspondente cadastrada na planilha
         await client.sendMessage(chatId, menuOpcoes[texto]);
         return;
     }
 
-    // Caso contrário (mensagem fora do escopo / saudação / texto inválido), envia o menu principal
     let textoMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
                     'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
-    // Monta o menu dinamicamente com base nas opções da planilha (CORRIGIDO)
     for (const [opcao, resposta] of Object.entries(menuOpcoes)) {
         textoMenu += `*${opcao}* - Opção ${opcao}\n`;
     }
