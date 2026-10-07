@@ -11,8 +11,8 @@ const client = new Client({
     }
 });
 
-// Substitua pelo link CSV público da sua planilha do Google Sheets
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
+// Substitua pelo link CSV público da sua planilha do Google Sheets (ajustado com seu ID)
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/SEU_ID_DA_PLANILHA/export?format=csv&gid=0';
 
 let menuOpcoes = {};
 
@@ -26,9 +26,9 @@ async function carregarDadosPlanilha() {
             complete: (results) => {
                 menuOpcoes = {};
                 results.data.forEach(row => {
-                    // Assume colunas: 'Opcao', 'Categoria', 'Resposta' (ajuste conforme os nomes na sua planilha)
-                    if (row.Opcao && row.Resposta) {
-                        menuOpcoes[row.Opcao.trim()] = row.Resposta.trim();
+                    // Certifique-se de que os nomes das colunas na planilha correspondem a 'Opção' e 'Resposta'
+                    if (row.Opção && row.Resposta) {
+                        menuOpcoes[row.Opção.trim()] = row.Resposta.trim();
                     }
                 });
                 console.log('✅ Dados da planilha atualizados com sucesso!');
@@ -39,7 +39,7 @@ async function carregarDadosPlanilha() {
     }
 }
 
-// Atualiza os dados a cada 10 minutos para refletir mudanças na planilha automaticamente
+// Atualiza os dados a cada 10 minutos
 setInterval(carregarDadosPlanilha, 10 * 60 * 1000);
 
 client.on('qr', (qr) => {
@@ -63,7 +63,7 @@ client.on('message', async msg => {
     // Se o contato já estiver em atendimento humano, o bot silencia
     if (aguardandoHumano.has(chatId)) return;
 
-    // Se a mensagem enviada corresponde a uma opção válida na planilha (de 1 a 11)
+    // Se a mensagem enviada corresponde a uma opção válida na planilha
     if (menuOpcoes[texto]) {
         // Se for a opção 11 (falar com a coordenação), ativa o transbordo humano
         if (texto === '11') {
@@ -81,9 +81,8 @@ client.on('message', async msg => {
     let textoMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
                     'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
-    // Monta o menu dinamicamente com base nas opções da planilha
-    for (const [opcao, resposta]] of Object.entries(menuOpcoes)) {
-        // Extrai uma breve descrição da resposta ou usa o número
+    // Monta o menu dinamicamente com base nas opções da planilha (CORRIGIDO)
+    for (const [opcao, resposta] of Object.entries(menuOpcoes)) {
         textoMenu += `*${opcao}* - Opção ${opcao}\n`;
     }
 
