@@ -9,7 +9,7 @@ const client = new Client({
 });
 
 // Cole aqui o link CSV público da sua planilha do Google Sheets (com o ID correto)
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/SEU_ID_DA_PLANILHA/export?format=csv&gid=0';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
 
 let menuOpcoes = {};
 
