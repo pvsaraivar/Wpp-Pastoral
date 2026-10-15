@@ -114,16 +114,13 @@ const aguardandoHumano = new Set();
 const mensagensProcessadas = new Set();
 
 client.on('message', async msg => {
+    console.log('📩 Evento message disparado de:', msg.from, '| Conteúdo:', msg.body);
     if (msg.fromMe) return;
-
-    const messageId = msg.id._serialized;
-    if (mensagensProcessadas.has(messageId)) return;
-    mensagensProcessadas.add(messageId);
-    setTimeout(() => mensagensProcessadas.delete(messageId), 30000);
-
+    if (msg.from.includes('@g.us')) return; // Ignora grupos por segurança
+    
     const chatId = msg.from;
-    const texto = msg.body.trim();
-
+    const texto = msg.body ? msg.body.trim() : '';
+    
     if (aguardandoHumano.has(chatId)) return;
 
     if (menuOpcoes[texto]) {
