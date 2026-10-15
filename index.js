@@ -1,3 +1,40 @@
+// =========================================================================
+// 🛡️ SISTEMA DE ESTABILIDADE E AUTO-RECUPERAÇÃO 24/7
+// =========================================================================
+
+// 1. Caso ocorra desconexão do WhatsApp Web
+client.on('disconnected', (reason) => {
+    console.log('⚠️ Conexão perdida com o WhatsApp:', reason);
+    // Encerra o processo; a Discloud reiniciará a aplicação instantaneamente
+    process.exit(1);
+});
+
+// 2. Watchdog: Teste de saúde a cada 5 minutos
+setInterval(async () => {
+    try {
+        if (!client || !client.pupPage) {
+            console.log('⚠️ Navegador travado. Forçando reinício automático...');
+            process.exit(1);
+        }
+        
+        const state = await client.getState();
+        if (state !== 'CONNECTED') {
+            console.log(`⚠️ Estado de conexão anormal (${state}). Reiniciando container...`);
+            process.exit(1);
+        }
+    } catch (err) {
+        console.error('⚠️ Falha no teste de conexão (Watchdog). Reiniciando robô...');
+        process.exit(1);
+    }
+}, 5 * 60 * 1000); // Verifica de 5 em 5 minutos
+
+// 3. Reinício Preventivo Diário (Evita acúmulo de memória no Chromium)
+// Reinicia o robô suavemente a cada 24 horas para manter o sistema veloz
+setTimeout(() => {
+    console.log('🔄 Executando reinício diário preventivo de rotina...');
+    process.exit(0);
+}, 24 * 60 * 60 * 1000);
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const Papa = require('papaparse');
 const fs = require('fs');
@@ -116,8 +153,29 @@ client.on('ready', () => {
     console.log('🚀 Robô da paróquia online e operando em formato de menu!');
 });
 
+// Quando a conexão com o WhatsApp cair ou congelar na nuvem
+client.on('disconnected', (reason) => {
+    console.log('⚠️ Cliente desconectado do WhatsApp:', reason);
+    // Força o encerramento do processo para que a Discloud reinicie o bot do zero automaticamente
+    process.exit(1);
+});
+
 const aguardandoHumano = new Set();
 const mensagensProcessadas = new Set();
+
+// Garante que o processo não fique pendurado em caso de travamento do Puppeteer
+setInterval(async () => {
+    try {
+        const state = await client.getState();
+        if (state !== 'CONNECTED') {
+            console.log('⚠️ Estado do cliente inválido:', state);
+            process.exit(1);
+        }
+    } catch (err) {
+        console.error('⚠️ Falha ao checar estado do cliente. Reiniciando container...');
+        process.exit(1);
+    }
+}, 5 * 60 * 1000); // Verifica a cada 5 minutos
 
 client.on('message', async msg => {
     // Ignora atualizações de status/broadcast, mensagens do próprio bot e grupos
