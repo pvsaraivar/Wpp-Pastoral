@@ -4,16 +4,26 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        timeout: 60000, // Aumenta o tempo limite para 60 segundos
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ]
     }
 });
 
-// Cole aqui o link CSV público da sua planilha do Google Sheets (com o ID correto)
+// Link da sua planilha formatado para CSV
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
 
 let menuOpcoes = {};
 
-// Função nativa para carregar os dados da planilha sem precisar de pacotes externos
+// Função para carregar os dados da planilha
 async function carregarDadosPlanilha() {
     try {
         const response = await fetch(SHEET_CSV_URL);
@@ -23,7 +33,7 @@ async function carregarDadosPlanilha() {
         menuOpcoes = {};
 
         for (let i = 1; i < linhas.length; i++) {
-            const linha = linhas.trim();
+            const linha = linhas[i].trim();
             if (!linha) continue;
 
             const primeiraVirgula = linha.indexOf(',');
@@ -31,7 +41,6 @@ async function carregarDadosPlanilha() {
                 let opcao = linha.substring(0, primeiraVirgula).replace(/"/g, '').trim();
                 let resposta = linha.substring(primeiraVirgula + 1).replace(/^"/, '').replace(/"$/, '').trim();
                 
-                // Substitui quebras de linha literais se houverem
                 resposta = resposta.replace(/\\n/g, '\n');
                 
                 if (opcao && resposta) {
