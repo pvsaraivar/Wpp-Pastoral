@@ -118,13 +118,15 @@ const aguardandoHumano = new Set();
 const mensagensProcessadas = new Set();
 
 client.on('message', async msg => {
-    console.log('📩 Evento message disparado de:', msg.from, '| Conteúdo:', msg.body);
-    if (msg.fromMe) return;
-    if (msg.from.includes('@g.us')) return; // Ignora grupos por segurança
-    
+    // Ignora atualizações de status/broadcast, mensagens do próprio bot e grupos
+    if (msg.fromMe || msg.from === 'status@broadcast' || msg.isStatus) return;
+    if (msg.from.includes('@g.us')) return;
+
+    console.log('📩 Mensagem válida recebida de:', msg.from, '| Conteúdo:', msg.body);
+
     const chatId = msg.from;
     const texto = msg.body ? msg.body.trim() : '';
-    
+
     if (aguardandoHumano.has(chatId)) return;
 
     if (menuOpcoes[texto]) {
@@ -137,5 +139,4 @@ client.on('message', async msg => {
 
     await client.sendMessage(chatId, menuFormatadoCache || '🙏 Olá! Envie um número válido de 1 a 11 para ver as opções.');
 });
-
 client.initialize();
