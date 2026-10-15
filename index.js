@@ -18,6 +18,15 @@ const client = new Client({
     }
 });
 
+// Impede que erros internos do WhatsApp fechem a aplicação
+process.on('uncaughtException', (err) => {
+    console.error('⚠️ Erro capturado (não fatal):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ Rejeição de promessa capturada:', reason);
+});
+
 // Link da sua planilha formatado para CSV
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
 
