@@ -1,46 +1,9 @@
-// =========================================================================
-// 🛡️ SISTEMA DE ESTABILIDADE E AUTO-RECUPERAÇÃO 24/7
-// =========================================================================
-
-// 1. Caso ocorra desconexão do WhatsApp Web
-client.on('disconnected', (reason) => {
-    console.log('⚠️ Conexão perdida com o WhatsApp:', reason);
-    // Encerra o processo; a Discloud reiniciará a aplicação instantaneamente
-    process.exit(1);
-});
-
-// 2. Watchdog: Teste de saúde a cada 5 minutos
-setInterval(async () => {
-    try {
-        if (!client || !client.pupPage) {
-            console.log('⚠️ Navegador travado. Forçando reinício automático...');
-            process.exit(1);
-        }
-        
-        const state = await client.getState();
-        if (state !== 'CONNECTED') {
-            console.log(`⚠️ Estado de conexão anormal (${state}). Reiniciando container...`);
-            process.exit(1);
-        }
-    } catch (err) {
-        console.error('⚠️ Falha no teste de conexão (Watchdog). Reiniciando robô...');
-        process.exit(1);
-    }
-}, 5 * 60 * 1000); // Verifica de 5 em 5 minutos
-
-// 3. Reinício Preventivo Diário (Evita acúmulo de memória no Chromium)
-// Reinicia o robô suavemente a cada 24 horas para manter o sistema veloz
-setTimeout(() => {
-    console.log('🔄 Executando reinício diário preventivo de rotina...');
-    process.exit(0);
-}, 24 * 60 * 60 * 1000);
-
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const Papa = require('papaparse');
 const fs = require('fs');
 const path = require('path');
 
-// 🧹 Função de limpeza automática de locks do Chromium
+// 1. Limpeza automática de travas do Chromium
 function limparLocks(diretorio) {
     if (!fs.existsSync(diretorio)) return;
     
@@ -61,14 +24,14 @@ function limparLocks(diretorio) {
     });
 }
 
-// Executa a limpeza profunda antes de iniciar
 limparLocks(path.join(__dirname, '.wwebjs_auth'));
 
-// Proteção contra quedas não fatais
+// Proteção contra erros não fatais
 process.on('uncaughtException', (err) => {
     console.error('⚠️ Erro capturado (não fatal):', err);
 });
 
+// 2. DECLARAÇÃO E INICIALIZAÇÃO DO CLIENT (Precisa vir ANTES dos eventos do client)
 const client = new Client({
     authStrategy: new LocalAuth(),
     webVersionCache: {
@@ -91,6 +54,38 @@ const client = new Client({
     }
 });
 
+// 3. EVENTOS DE ESTABILIDADE E AUTO-RECUPERAÇÃO 24/7
+client.on('disconnected', (reason) => {
+    console.log('⚠️ Conexão perdida com o WhatsApp:', reason);
+    process.exit(1);
+});
+
+// Watchdog: Verifica a conexão a cada 5 minutos
+setInterval(async () => {
+    try {
+        if (!client || !client.pupPage) {
+            console.log('⚠️ Navegador travado. Forçando reinício automático...');
+            process.exit(1);
+        }
+        
+        const state = await client.getState();
+        if (state !== 'CONNECTED') {
+            console.log(`⚠️ Estado de conexão anormal (${state}). Reiniciando container...`);
+            process.exit(1);
+        }
+    } catch (err) {
+        console.error('⚠️ Falha no teste de conexão (Watchdog). Reiniciando robô...');
+        process.exit(1);
+    }
+}, 5 * 60 * 1000);
+
+// Reinício preventivo a cada 24 horas para limpar memória do Chromium
+setTimeout(() => {
+    console.log('🔄 Executando reinício diário preventivo de rotina...');
+    process.exit(0);
+}, 24 * 60 * 60 * 1000);
+
+// 4. INTEGRAÇÃO COM A PLANILHA DO GOOGLE SHEETS
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
 
 let menuOpcoes = {};
@@ -106,11 +101,10 @@ async function carregarDadosPlanilha() {
             skipEmptyLines: true,
             complete: (results) => {
                 menuOpcoes = {};
-                let linhasMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretariado Arquidiocesana de Pastoral.*\n\n' +
-                                 'Por favor, envie *apenas o número* correspondente à opção desejada:\n\n';
+                let linhasMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
+                                 'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
                 results.data.forEach(row => {
-                    // Lê diretamente as colunas exatas da planilha: Opção, Categoria e Resposta
                     const opcaoBruta = row['Opção'] || row['Opcao'] || row['opcao'];
                     const categoria = row['Categoria'] || row['categoria'];
                     const resposta = row['Resposta'] || row['resposta'];
@@ -121,10 +115,7 @@ async function carregarDadosPlanilha() {
                         const textoCategoria = categoria ? categoria.trim() : `Opção ${opcaoNum}`;
 
                         if (opcaoNum) {
-                            // Mapeia a resposta completa para a chave do número
                             menuOpcoes[opcaoNum] = textoResposta;
-                            
-                            // Monta a linha do menu formatada: *1* - Horário de Missa
                             linhasMenu += `*${opcaoNum}* - ${textoCategoria}\n`;
                         }
                     }
@@ -142,6 +133,7 @@ async function carregarDadosPlanilha() {
 carregarDadosPlanilha();
 setInterval(carregarDadosPlanilha, 10 * 60 * 1000);
 
+// 5. EVENTOS DO CLIENTE WHATSAPP
 client.on('qr', (qr) => {
     console.log('==================================================');
     console.log('ATENÇÃO: Copie o link abaixo e cole no seu navegador para ver o QR Code limpo:');
@@ -153,50 +145,40 @@ client.on('ready', () => {
     console.log('🚀 Robô da paróquia online e operando em formato de menu!');
 });
 
-// Quando a conexão com o WhatsApp cair ou congelar na nuvem
-client.on('disconnected', (reason) => {
-    console.log('⚠️ Cliente desconectado do WhatsApp:', reason);
-    // Força o encerramento do processo para que a Discloud reinicie o bot do zero automaticamente
-    process.exit(1);
-});
-
 const aguardandoHumano = new Set();
-const mensagensProcessadas = new Set();
-
-// Garante que o processo não fique pendurado em caso de travamento do Puppeteer
-setInterval(async () => {
-    try {
-        const state = await client.getState();
-        if (state !== 'CONNECTED') {
-            console.log('⚠️ Estado do cliente inválido:', state);
-            process.exit(1);
-        }
-    } catch (err) {
-        console.error('⚠️ Falha ao checar estado do cliente. Reiniciando container...');
-        process.exit(1);
-    }
-}, 5 * 60 * 1000); // Verifica a cada 5 minutos
 
 client.on('message', async msg => {
-    // Ignora atualizações de status/broadcast, mensagens do próprio bot e grupos
+    // Ignora status, mensagens enviadas pelo próprio bot e grupos
     if (msg.fromMe || msg.from === 'status@broadcast' || msg.isStatus) return;
     if (msg.from.includes('@g.us')) return;
 
-    console.log('📩 Mensagem válida recebida de:', msg.from, '| Conteúdo:', msg.body);
-
     const chatId = msg.from;
-    const texto = msg.body ? msg.body.trim() : '';
+    const textoBruto = msg.body ? msg.body.trim() : '';
 
-    if (aguardandoHumano.has(chatId)) return;
-
-    if (menuOpcoes[texto]) {
-        if (texto === '11') {
-            aguardandoHumano.add(chatId);
-        }
-        await client.sendMessage(chatId, menuOpcoes[texto]);
+    // Permite encerrar o atendimento humano com um comando
+    if (textoBruto === '#voltar' || textoBruto === '#sair') {
+        aguardandoHumano.delete(chatId);
+        await client.sendMessage(chatId, '✅ Atendimento humano encerrado. Menu automático reativado!');
+        await client.sendMessage(chatId, menuFormatadoCache);
         return;
     }
 
-    await client.sendMessage(chatId, menuFormatadoCache || '🙏 Olá! Envie um número válido de 1 a 11 para ver as opções.');
+    if (aguardandoHumano.has(chatId)) return;
+
+    const numeroDigitado = textoBruto.replace(/[^0-9]/g, '');
+    const opcaoEncontrada = menuOpcoes[numeroDigitado] ? numeroDigitado : (menuOpcoes[textoBruto] ? textoBruto : null);
+
+    if (opcaoEncontrada) {
+        console.log(`✅ Opção [${opcaoEncontrada}] selecionada por ${chatId}`);
+        if (opcaoEncontrada === '11') {
+            aguardandoHumano.add(chatId);
+        }
+        await client.sendMessage(chatId, menuOpcoes[opcaoEncontrada]);
+        return;
+    }
+
+    const menuComErro = menuFormatadoCache + '\n❌ _Não reconheci essa opção. Envie apenas o número desejado._';
+    await client.sendMessage(chatId, menuComErro);
 });
+
 client.initialize();
