@@ -1,10 +1,16 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const Papa = require('papaparse');
+
+// Proteção contra quedas não fatais
+process.on('uncaughtException', (err) => {
+    console.error('⚠️ Erro capturado (não fatal):', err);
+});
 
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        timeout: 60000, // Aumenta o tempo limite para 60 segundos
+        timeout: 60000,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -18,52 +24,56 @@ const client = new Client({
     }
 });
 
-// Impede que erros internos do WhatsApp fechem a aplicação
-process.on('uncaughtException', (err) => {
-    console.error('⚠️ Erro capturado (não fatal):', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Rejeição de promessa capturada:', reason);
-});
-
-// Link da sua planilha formatado para CSV
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1q_Q6oFByVbSylugQUku3OB56HFZhIfCh_z0GAV8r-28/export?format=csv&gid=0';
 
 let menuOpcoes = {};
+let menuFormatadoCache = '';
 
-// Função para carregar os dados da planilha
 async function carregarDadosPlanilha() {
     try {
         const response = await fetch(SHEET_CSV_URL);
         const csvText = await response.text();
         
-        const linhas = csvText.split('\n');
-        menuOpcoes = {};
+        Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                menuOpcoes = {};
+                let linhasMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
+                                 'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
-        for (let i = 1; i < linhas.length; i++) {
-            const linha = linhas[i].trim();
-            if (!linha) continue;
+                results.data.forEach(row => {
+                    const keys = Object.keys(row);
+                    const chaveOpcao = keys.find(k => k.toLowerCase().includes('opç') || k.toLowerCase().includes('opcao'));
+                    const chaveResposta = keys.find(k => k.toLowerCase().includes('resp') || k.toLowerCase().includes('desc') || k.toLowerCase().includes('categoria') || k.toLowerCase().includes('texto'));
 
-            const primeiraVirgula = linha.indexOf(',');
-            if (primeiraVirgula !== -1) {
-                let opcao = linha.substring(0, primeiraVirgula).replace(/"/g, '').trim();
-                let resposta = linha.substring(primeiraVirgula + 1).replace(/^"/, '').replace(/"$/, '').trim();
+                    if (chaveOpcao && chaveResposta) {
+                        const opcao = row[chaveOpcao]?.trim();
+                        const resposta = row[chaveResposta]?.trim();
+                        
+                        if (opcao && resposta) {
+                            menuOpcoes[opcao] = resposta.replace(/\\n/g, '\n');
+                            
+                            // Cria uma linha limpa para o menu principal (pega a primeira linha do texto ou um resumo)
+                            const resumo = resposta.split('\n')[0].substring(0, 40);
+                            linhasMenu += `*${opcao}* - ${resumo}...\n`;
+                        }
+                    }
+                });
+
+                linhasMenu += '\n❌ _Não reconheci essa opção. Envie um número válido._';
+                menuFormatadoCache = linhasMenu;
                 
-                resposta = resposta.replace(/\\n/g, '\n');
-                
-                if (opcao && resposta) {
-                    menuOpcoes[opcao] = resposta;
-                }
+                console.log('✅ Dados da planilha carregados com sucesso! Total de opções:', Object.keys(menuOpcoes).length);
             }
-        }
-        console.log('✅ Dados da planilha carregados com sucesso! Total de opções:', Object.keys(menuOpcoes).length);
+        });
     } catch (error) {
         console.error('❌ Erro ao carregar dados da planilha:', error);
     }
 }
 
-// Atualiza os dados a cada 10 minutos
+// Carrega os dados no arranque e a cada 10 minutos
+carregarDadosPlanilha();
 setInterval(carregarDadosPlanilha, 10 * 60 * 1000);
 
 client.on('qr', (qr) => {
@@ -73,41 +83,38 @@ client.on('qr', (qr) => {
     console.log('==================================================');
 });
 
-client.on('ready', async () => {
+client.on('ready', () => {
     console.log('🚀 Robô da paróquia online e operando em formato de menu!');
-    await carregarDadosPlanilha();
 });
 
 const aguardandoHumano = new Set();
+const mensagensProcessadas = new Set();
 
 client.on('message', async msg => {
     if (msg.fromMe) return;
+
+    // Evita duplicidade caso o WhatsApp dispare o evento repetido para a mesma mensagem
+    const messageId = msg.id._serialized;
+    if (mensagensProcessadas.has(messageId)) return;
+    mensagensProcessadas.add(messageId);
+    setTimeout(() => mensagensProcessadas.delete(messageId), 30000); // Limpa cache após 30s
 
     const chatId = msg.from;
     const texto = msg.body.trim();
 
     if (aguardandoHumano.has(chatId)) return;
 
+    // Se a opção digitada existe na planilha
     if (menuOpcoes[texto]) {
         if (texto === '11') {
             aguardandoHumano.add(chatId);
-            await client.sendMessage(chatId, menuOpcoes[texto]);
-            return;
         }
         await client.sendMessage(chatId, menuOpcoes[texto]);
         return;
     }
 
-    let textoMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
-                    'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
-
-    for (const [opcao, resposta] of Object.entries(menuOpcoes)) {
-        textoMenu += `*${opcao}* - Opção ${opcao}\n`;
-    }
-
-    textoMenu += '\n❌ _Não reconheci essa opção. Envie um número válido._';
-
-    await client.sendMessage(chatId, textoMenu);
+    // Caso contrário, envia o menu principal formatado corretamente
+    await client.sendMessage(chatId, menuFormatadoCache || '🙏 Olá! Envie um número válido de 1 a 11 para ver as opções.');
 });
 
 client.initialize();
