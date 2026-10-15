@@ -101,7 +101,7 @@ async function carregarDadosPlanilha() {
             skipEmptyLines: true,
             complete: (results) => {
                 menuOpcoes = {};
-                let linhasMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretaria Paroquial.*\n\n' +
+                let linhasMenu = '🙏 *Olá! Seja bem-vindo(a) à Secretariado Arquidiocesano Pastoral.*\n\n' +
                                  'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
                 results.data.forEach(row => {
