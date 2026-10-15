@@ -1,3 +1,26 @@
+const fs = require('fs');
+const path = require('path');
+
+// 🛡️ Remove automaticamente qualquer trava de perfil do Chromium ao iniciar
+const caminhosLocks = [
+    path.join(__dirname, '.wwebjs_auth', 'session', 'SingletonLock'),
+    path.join(__dirname, '.wwebjs_auth', 'session', 'Default', 'SingletonLock'),
+    path.join(__dirname, '.wwebjs_auth', 'SingletonLock'),
+    path.join(__dirname, '.wwebjs_auth', 'session', 'SingletonSocket'),
+    path.join(__dirname, '.wwebjs_auth', 'session', 'Default', 'SingletonSocket')
+];
+
+caminhosLocks.forEach(caminho => {
+    if (fs.existsSync(caminho)) {
+        try {
+            fs.unlinkSync(caminho);
+            console.log(`🧹 Trava removida com sucesso: ${caminho}`);
+        } catch (e) {
+            console.log(`⚠️ Não foi possível remover a trava: ${caminho}`);
+        }
+    }
+});
+
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const Papa = require('papaparse');
 
