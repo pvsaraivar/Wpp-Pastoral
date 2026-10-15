@@ -1,15 +1,36 @@
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const Papa = require('papaparse');
 const fs = require('fs');
 const path = require('path');
 
-// 🛡️ Remove automaticamente qualquer trava de perfil do Chromium ao iniciar
-const caminhosLocks = [
-    path.join(__dirname, '.wwebjs_auth', 'session', 'SingletonLock'),
-    path.join(__dirname, '.wwebjs_auth', 'session', 'Default', 'SingletonLock'),
-    path.join(__dirname, '.wwebjs_auth', 'SingletonLock'),
-    path.join(__dirname, '.wwebjs_auth', 'session', 'SingletonSocket'),
-    path.join(__dirname, '.wwebjs_auth', 'session', 'Default', 'SingletonSocket')
-];
+// 🧹 Função para apagar automaticamente qualquer trava de perfil do Chromium em qualquer subpasta
+function limparLocks(diretorio) {
+    if (!fs.existsSync(diretorio)) return;
+    
+    fs.readdirSync(diretorio, { withFileTypes: true }).forEach(entidade => {
+        const caminhoCompleto = path.join(diretorio, entidade.name);
+        if (entidade.isDirectory()) {
+            limparLocks(caminhoCompleto);
+        } else {
+            if (entidade.name.toLowerCase().includes('singleton')) {
+                try {
+                    fs.unlinkSync(caminhoCompleto);
+                    console.log(`🧹 Trava removida com sucesso: ${caminhoCompleto}`);
+                } catch (e) {
+                    console.error(`⚠️ Erro ao remover trava: ${caminhoCompleto}`);
+                }
+            }
+        }
+    });
+}
 
+// Executa a limpeza profunda na pasta de sessão antes de iniciar o cliente
+limparLocks(path.join(__dirname, '.wwebjs_auth'));
+
+// Proteção contra quedas não fatais
+process.on('uncaughtException', (err) => {
+    console.error('⚠️ Erro capturado (não fatal):', err);
+});
 caminhosLocks.forEach(caminho => {
     if (fs.existsSync(caminho)) {
         try {
