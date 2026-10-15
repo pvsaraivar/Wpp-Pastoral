@@ -168,14 +168,18 @@ client.on('message', async msg => {
     const numeroDigitado = textoBruto.replace(/[^0-9]/g, '');
     const opcaoEncontrada = menuOpcoes[numeroDigitado] ? numeroDigitado : (menuOpcoes[textoBruto] ? textoBruto : null);
 
-    if (opcaoEncontrada) {
-        console.log(`✅ Opção [${opcaoEncontrada}] selecionada por ${chatId}`);
-        if (opcaoEncontrada === '11') {
-            aguardandoHumano.add(chatId);
-        }
-        await client.sendMessage(chatId, menuOpcoes[opcaoEncontrada]);
-        return;
+    // Substitua o trecho de seleção de opção por este:
+if (opcaoEncontrada) {
+    console.log(`✅ Opção [${opcaoEncontrada}] selecionada por ${chatId}`);
+    
+    // Atualizado para a Opção 12 (Falar com a coordenação)
+    if (opcaoEncontrada === '12') {
+        aguardandoHumano.add(chatId);
     }
+    
+    await client.sendMessage(chatId, menuOpcoes[opcaoEncontrada]);
+    return;
+}
 
     const menuComErro = menuFormatadoCache + '\n❌ _Não reconheci essa opção. Envie apenas o número desejado._';
     await client.sendMessage(chatId, menuComErro);
