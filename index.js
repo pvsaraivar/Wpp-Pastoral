@@ -3,7 +3,7 @@ const Papa = require('papaparse');
 const fs = require('fs');
 const path = require('path');
 
-// 🧹 Função para apagar automaticamente qualquer trava de perfil do Chromium em qualquer subpasta
+// 🧹 Função de limpeza automática de locks do Chromium
 function limparLocks(diretorio) {
     if (!fs.existsSync(diretorio)) return;
     
@@ -15,7 +15,7 @@ function limparLocks(diretorio) {
             if (entidade.name.toLowerCase().includes('singleton')) {
                 try {
                     fs.unlinkSync(caminhoCompleto);
-                    console.log(`🧹 Trava removida com sucesso: ${caminhoCompleto}`);
+                    console.log(`🧹 Trava removida: ${caminhoCompleto}`);
                 } catch (e) {
                     console.error(`⚠️ Erro ao remover trava: ${caminhoCompleto}`);
                 }
@@ -24,26 +24,8 @@ function limparLocks(diretorio) {
     });
 }
 
-// Executa a limpeza profunda na pasta de sessão antes de iniciar o cliente
+// Executa a limpeza profunda antes de iniciar
 limparLocks(path.join(__dirname, '.wwebjs_auth'));
-
-// Proteção contra quedas não fatais
-process.on('uncaughtException', (err) => {
-    console.error('⚠️ Erro capturado (não fatal):', err);
-});
-caminhosLocks.forEach(caminho => {
-    if (fs.existsSync(caminho)) {
-        try {
-            fs.unlinkSync(caminho);
-            console.log(`🧹 Trava removida com sucesso: ${caminho}`);
-        } catch (e) {
-            console.log(`⚠️ Não foi possível remover a trava: ${caminho}`);
-        }
-    }
-});
-
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const Papa = require('papaparse');
 
 // Proteção contra quedas não fatais
 process.on('uncaughtException', (err) => {
@@ -97,8 +79,6 @@ async function carregarDadosPlanilha() {
                         
                         if (opcao && resposta) {
                             menuOpcoes[opcao] = resposta.replace(/\\n/g, '\n');
-                            
-                            // Cria uma linha limpa para o menu principal (pega a primeira linha do texto ou um resumo)
                             const resumo = resposta.split('\n')[0].substring(0, 40);
                             linhasMenu += `*${opcao}* - ${resumo}...\n`;
                         }
@@ -116,7 +96,6 @@ async function carregarDadosPlanilha() {
     }
 }
 
-// Carrega os dados no arranque e a cada 10 minutos
 carregarDadosPlanilha();
 setInterval(carregarDadosPlanilha, 10 * 60 * 1000);
 
@@ -137,18 +116,16 @@ const mensagensProcessadas = new Set();
 client.on('message', async msg => {
     if (msg.fromMe) return;
 
-    // Evita duplicidade caso o WhatsApp dispare o evento repetido para a mesma mensagem
     const messageId = msg.id._serialized;
     if (mensagensProcessadas.has(messageId)) return;
     mensagensProcessadas.add(messageId);
-    setTimeout(() => mensagensProcessadas.delete(messageId), 30000); // Limpa cache após 30s
+    setTimeout(() => mensagensProcessadas.delete(messageId), 30000);
 
     const chatId = msg.from;
     const texto = msg.body.trim();
 
     if (aguardandoHumano.has(chatId)) return;
 
-    // Se a opção digitada existe na planilha
     if (menuOpcoes[texto]) {
         if (texto === '11') {
             aguardandoHumano.add(chatId);
@@ -157,7 +134,6 @@ client.on('message', async msg => {
         return;
     }
 
-    // Caso contrário, envia o menu principal formatado corretamente
     await client.sendMessage(chatId, menuFormatadoCache || '🙏 Olá! Envie um número válido de 1 a 11 para ver as opções.');
 });
 
