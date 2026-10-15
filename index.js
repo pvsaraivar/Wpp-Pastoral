@@ -73,26 +73,28 @@ async function carregarDadosPlanilha() {
                                  'Por favor, envie **apenas o número** correspondente à opção desejada:\n\n';
 
                 results.data.forEach(row => {
-                    const keys = Object.keys(row);
-                    const chaveOpcao = keys.find(k => k.toLowerCase().includes('opç') || k.toLowerCase().includes('opcao'));
-                    const chaveResposta = keys.find(k => k.toLowerCase().includes('resp') || k.toLowerCase().includes('desc') || k.toLowerCase().includes('categoria') || k.toLowerCase().includes('texto'));
+                    // Lê diretamente as colunas exatas da planilha: Opção, Categoria e Resposta
+                    const opcaoBruta = row['Opção'] || row['Opcao'] || row['opcao'];
+                    const categoria = row['Categoria'] || row['categoria'];
+                    const resposta = row['Resposta'] || row['resposta'];
 
-                    if (chaveOpcao && chaveResposta) {
-                        const opcao = row[chaveOpcao]?.trim();
-                        const resposta = row[chaveResposta]?.trim();
-                        
-                        if (opcao && resposta) {
-                            menuOpcoes[opcao] = resposta.replace(/\\n/g, '\n');
-                            const resumo = resposta.split('\n')[0].substring(0, 40);
-                            linhasMenu += `*${opcao}* - ${resumo}...\n`;
+                    if (opcaoBruta && resposta) {
+                        const opcaoNum = opcaoBruta.toString().trim().replace(/[^0-9]/g, '');
+                        const textoResposta = resposta.trim().replace(/\\n/g, '\n');
+                        const textoCategoria = categoria ? categoria.trim() : `Opção ${opcaoNum}`;
+
+                        if (opcaoNum) {
+                            // Mapeia a resposta completa para a chave do número
+                            menuOpcoes[opcaoNum] = textoResposta;
+                            
+                            // Monta a linha do menu formatada: *1* - Horário de Missa
+                            linhasMenu += `*${opcaoNum}* - ${textoCategoria}\n`;
                         }
                     }
                 });
 
-                linhasMenu += '\n❌ _Não reconheci essa opção. Envie um número válido._';
                 menuFormatadoCache = linhasMenu;
-                
-                console.log('✅ Dados da planilha carregados com sucesso! Total de opções:', Object.keys(menuOpcoes).length);
+                console.log('✅ Dados da planilha carregados com sucesso! Opções disponíveis:', Object.keys(menuOpcoes));
             }
         });
     } catch (error) {
